@@ -1,0 +1,2 @@
+- enter Nix shell
+- `$ cargo run`

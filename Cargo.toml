@@ -1,0 +1,14 @@
+[package]
+name = "uefi-systemd-chainloader"
+description = """
+Simple example to demonstrate that I can do some fun in UEFI and then jump back
+into the normal boot flow of the system.
+"""
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+anyhow = { version = "1.0", default-features = false, features = [] }
+log = { version = "0.4", default-features = false, features = [] }
+uefi = { version = "0.36.0", default-features = false, features = ["alloc", "log-debugcon", "global_allocator", "logger", "panic_handler"] }

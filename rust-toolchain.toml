@@ -1,0 +1,6 @@
+[toolchain]
+# rust 1.92
+channel = "nightly-2025-10-01"
+# cargo, clippy, rustc, rust-docs, rustfmt, rust-std
+profile = "default"
+targets = [ "x86_64-unknown-uefi"]

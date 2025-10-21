@@ -1,0 +1,8 @@
+# https://doc.rust-lang.org/cargo/reference/config.html
+
+[build]
+target = "x86_64-unknown-uefi"
+
+# cargo run will
+[target.'cfg(target_os = "uefi")']
+runner = "bash run.sh"
