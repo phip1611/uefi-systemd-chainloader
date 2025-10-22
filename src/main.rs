@@ -81,7 +81,10 @@ fn chainload() -> anyhow::Result<()> {
         let mut fs = FileSystem::new(sfp_protocol);
         let exists = fs.try_exists(PATH)?;
 
-        if exists {
+        if !exists {
+            info!("Didn't find file {PATH}");
+        }
+        else {
             info!("Found file {PATH}");
             info!("Booting in 3 ..",);
             boot::stall(Duration::from_secs(1));
