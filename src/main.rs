@@ -1,7 +1,10 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 use {
+    alloc::vec,
     core::time::Duration,
     log::{
         error,
@@ -19,8 +22,13 @@ use {
         fs::FileSystem,
         helpers,
         proto::{
+            BootPolicy,
             device_path::{
                 DevicePath,
+                build::{
+                    self,
+                    DevicePathBuilder,
+                },
                 text::{
                     AllowShortcuts,
                     DisplayOnly,
@@ -61,8 +69,8 @@ fn chainload() -> anyhow::Result<()> {
             )?
         };
 
-        // Device path of the handle
-        let dp_protocol = unsafe {
+        // Device path of the disk with the FAT file system
+        let dp_disk = unsafe {
             boot::open_protocol::<DevicePath>(
                 OpenProtocolParams {
                     handle: *handle,
@@ -74,18 +82,27 @@ fn chainload() -> anyhow::Result<()> {
         };
 
         // Stringified device path
-        let dp_string = dp_protocol.to_string(DisplayOnly(true), AllowShortcuts(false))?;
-
-        info!("Found disk: {dp_string}");
+        info!("Found disk with device path: {}", dp_disk.to_string(DisplayOnly(true), AllowShortcuts(false))?);
 
         let mut fs = FileSystem::new(sfp_protocol);
         let exists = fs.try_exists(PATH)?;
 
         if !exists {
             info!("Didn't find file {PATH}");
-        }
-        else {
+        } else {
             info!("Found file {PATH}");
+
+            let mut db_builder_buf = vec![];
+            let dp_file: &DevicePath = DevicePathBuilder::with_vec(&mut db_builder_buf)
+                .push(&build::media::FilePath { path_name: PATH })?
+                .finalize()?;
+            let dp_full = dp_disk.append_path(dp_file)?;
+
+            info!(
+                "File's full device path: {}",
+                dp_full.to_string(DisplayOnly(true), AllowShortcuts(false))?
+            );
+
             info!("Booting in 3 ..",);
             boot::stall(Duration::from_secs(1));
             info!("Booting in 2 ..",);
@@ -93,13 +110,12 @@ fn chainload() -> anyhow::Result<()> {
             info!("Booting in 1 ..",);
             boot::stall(Duration::from_secs(1));
 
-            let efi_bytes = fs.read(PATH)?;
             // We will never return here.
             let image = boot::load_image(
                 boot::image_handle(),
-                LoadImageSource::FromBuffer {
-                    buffer: &efi_bytes,
-                    file_path: None,
+                LoadImageSource::FromDevicePath {
+                    device_path: &dp_full,
+                    boot_policy: BootPolicy::ExactMatch,
                 },
             )?;
 
