@@ -5,4 +5,4 @@ target = "x86_64-unknown-uefi"
 
 # cargo run will
 [target.'cfg(target_os = "uefi")']
-runner = "bash run.sh"
+runner = "bash scripts/run.sh"

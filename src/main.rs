@@ -1,27 +1,54 @@
 #![no_std]
 #![no_main]
 
-use log::{error, info};
-use core::time::Duration;
-use uefi::boot::{LoadImageSource, OpenProtocolAttributes, OpenProtocolParams};
-use uefi::fs::FileSystem;
-use uefi::proto::device_path::DevicePath;
-use uefi::proto::device_path::text::{AllowShortcuts, DisplayOnly};
-use uefi::proto::media::fs::SimpleFileSystem;
-use uefi::{CStr16, Handle, boot, cstr16, helpers, system, table};
+use {
+    core::time::Duration,
+    log::{
+        error,
+        info,
+    },
+    uefi::{
+        CStr16,
+        boot::{
+            self,
+            LoadImageSource,
+            OpenProtocolAttributes,
+            OpenProtocolParams,
+        },
+        cstr16,
+        fs::FileSystem,
+        helpers,
+        proto::{
+            device_path::{
+                DevicePath,
+                text::{
+                    AllowShortcuts,
+                    DisplayOnly,
+                },
+            },
+            media::fs::SimpleFileSystem,
+        },
+        system,
+    },
+};
 
-
-/// This function chainloads the first systemd-bootx64.efi it finds.
+/// This function chainloads the first `systemd-bootx64.efi` it finds.
 ///
-/// It iterates all disks and looks for the corresponding EFI file. The first one is loaded.
+/// It iterates all disks and looks for the corresponding EFI file. The first
+/// one will be loaded and started.
 fn chainload() -> anyhow::Result<()> {
     const PATH: &'static CStr16 = cstr16!("EFI\\systemd\\systemd-bootx64.efi");
 
+    // Find all handles implementing the SimpleFileSystem protocol.
+    // In other words: Handles to all resources representing disks.
     let handles = boot::find_handles::<SimpleFileSystem>()?;
     info!(
-        "found {} handle(s) implementing the SimpleFileSystem protocol",
-        handles.len()
+        "found {} handle{} implementing the SimpleFileSystem protocol",
+        handles.len(),
+        if handles.len() == 1 { "" } else { "s" }
     );
+
+    // Iterate all handles and search for a matching disk/matching file system
     for handle in handles.iter() {
         let sfp_protocol = unsafe {
             boot::open_protocol::<SimpleFileSystem>(
@@ -34,6 +61,7 @@ fn chainload() -> anyhow::Result<()> {
             )?
         };
 
+        // Device path of the handle
         let dp_protocol = unsafe {
             boot::open_protocol::<DevicePath>(
                 OpenProtocolParams {
@@ -45,6 +73,7 @@ fn chainload() -> anyhow::Result<()> {
             )?
         };
 
+        // Stringified device path
         let dp_string = dp_protocol.to_string(DisplayOnly(true), AllowShortcuts(false))?;
 
         info!("Found disk: {dp_string}");
@@ -53,7 +82,7 @@ fn chainload() -> anyhow::Result<()> {
         let exists = fs.try_exists(PATH)?;
 
         if exists {
-            info!("Found systemd-bootx64.efi on disk: {dp_string}",);
+            info!("Found file {PATH}");
             info!("Booting in 3 ..",);
             boot::stall(Duration::from_secs(1));
             info!("Booting in 2 ..",);
@@ -71,10 +100,9 @@ fn chainload() -> anyhow::Result<()> {
                 },
             )?;
 
+            // This will never return
             boot::start_image(image)?;
             unreachable!();
-        } else {
-
         }
     }
     panic!("didn't find systemd-bootx64.efi on any partition");
@@ -83,7 +111,7 @@ fn chainload() -> anyhow::Result<()> {
 fn inner_main() -> anyhow::Result<()> {
     helpers::init()?;
 
-    info!("Hello World from uefi_std");
+    info!("Hello World from uefi-systemd-chainloader");
     info!("UEFI revision: {}", system::uefi_revision());
     chainload()?;
     Ok(())
@@ -95,6 +123,7 @@ fn main() -> uefi::Status {
         error!("\n{e:?}");
     }
     loop {
+        error!("Reached end of main() function");
         core::hint::spin_loop();
     }
 }
